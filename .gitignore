@@ -78,3 +78,4 @@ node_modules/
 
 # Do NOT ignore .env
 !.env
+.env
