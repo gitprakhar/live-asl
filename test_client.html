@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deepgram Real-Time Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+        #connect { background: #4CAF50; color: white; }
+        #disconnect { background: #f44336; color: white; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        #transcription {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            min-height: 200px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .log { color: #666; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🎤 Real-Time Transcription Test</h1>
+    <button id="connect">Connect & Start</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <div id="status">Ready - Click Connect to start</div>
+    <div id="transcription">Transcription will appear here...</div>
+    <div class="log" id="log"></div>
+
+    <script type="module">
+        import { Room, RoomEvent } from 'https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/+esm';
+        
+        const statusDiv = document.getElementById('status');
+        const transcriptionDiv = document.getElementById('transcription');
+        const logDiv = document.getElementById('log');
+        let room;
+        
+        function log(msg) {
+            console.log(msg);
+            logDiv.textContent = new Date().toLocaleTimeString() + ': ' + msg;
+        }
+        
+        document.getElementById('connect').onclick = async () => {
+            try {
+                statusDiv.textContent = '🔄 Getting token...';
+                log('Fetching token from server...');
+                
+                const response = await fetch('http://localhost:3000/get-token');
+                if (!response.ok) {
+                    throw new Error('Token server not responding. Is token_server.py running?');
+                }
+                const data = await response.json();
+                log('Token received');
+                
+                statusDiv.textContent = '🔄 Connecting to LiveKit...';
+                log('Connecting to: ' + data.url);
+                
+                room = new Room();
+                
+                // Add event listener for connection
+                room.on(RoomEvent.Connected, () => {
+                    log('Room connected!');
+                    statusDiv.textContent = '✅ Connected! Enabling microphone...';
+                });
+                
+                await room.connect(data.url, data.token);
+                
+                log('Enabling microphone...');
+                await room.localParticipant.setMicrophoneEnabled(true);
+                
+                statusDiv.textContent = '✅ CONNECTED! Speak now...';
+                statusDiv.style.background = '#d4edda';
+                log('Microphone enabled - speak now!');
+                
+                document.getElementById('connect').disabled = true;
+                document.getElementById('disconnect').disabled = false;
+                
+                transcriptionDiv.textContent = 'Listening... (check agent terminal for transcription)';
+                
+            } catch (error) {
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.style.background = '#f8d7da';
+                log('ERROR: ' + error.message);
+                console.error('Full error:', error);
+            }
+        };
+        
+        document.getElementById('disconnect').onclick = () => {
+            if (room) {
+                room.disconnect();
+                log('Disconnected from room');
+            }
+            statusDiv.textContent = 'Disconnected';
+            statusDiv.style.background = '#f0f0f0';
+            document.getElementById('connect').disabled = false;
+            document.getElementById('disconnect').disabled = true;
+            transcriptionDiv.textContent = 'Disconnected.';
+        };
+    </script>
+</body>
+</html>
